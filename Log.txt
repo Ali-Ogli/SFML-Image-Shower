@@ -1,0 +1,63 @@
+===============
+ .git is not font!
+ 
+===============
+===============
+ .gitattributes is not font!
+ 
+===============
+===============
+ .gitignore is not font!
+ 
+===============
+===============
+ .vs is not font!
+ 
+===============
+===============
+ font.otf is not font!
+ 
+===============
+===============
+ LICENSE.txt is not font!
+ 
+===============
+===============
+ README.md is not font!
+ 
+===============
+===============
+ SFML Ima.fe59dd07 is not font!
+ 
+===============
+===============
+ SFML Image Shower.sln is not font!
+ 
+===============
+===============
+ SFML Image Shower.vcxproj is not font!
+ 
+===============
+===============
+ SFML Image Shower.vcxproj.filters is not font!
+ 
+===============
+===============
+ SFML Image Shower.vcxproj.user is not font!
+ 
+===============
+===============
+ src is not font!
+ 
+===============
+===============
+ temp.jpeg is not font!
+ 
+===============
+===============
+ x64 is not font!
+ 
+===============
+No font was found!
+ Supported fonts are otf or ttf English! 
+===============

@@ -1,13 +1,3 @@
-
-
-/*
-TODO: Re-design the software so it doesn't load all images, instead it load ONLY the image it want to show <<
-<< so it saves memory and stop the unwanted loading dely. Done!
-
-- Fix the Arabic path that crash the program or it doesn't get supported!
-
-*/
-
 /*
 
 To std::wstring (For Windows)
@@ -34,42 +24,83 @@ std::string toUTF8(const std::wstring& wide) {
 
 */
 
-// Threading
-#include <future>
+/*
+TODO:
 
-#include <SFML/Graphics.hpp>
-#include <iostream>
-#include <filesystem>
-#include <string>
-#include <vector>
-#include <algorithm>
+- Fix software freezing when loading an sprite!
+
+- Add UI to show user what to press to interact with the application.
+
+*/
+
+//================= [Headers] =================
+
+#include <SFML/Graphics.hpp> // For SFML window, render, shapes and more...
+#include <iostream>				// Printing to the consol
+#include <fstream>				// Manipulate system files
+#include <filesystem>			// Reading files from OS
+#include <string>				// For std::string
+#include <vector>				// For std::vector
+#include <algorithm>			// For std::remove
+#include <future>				// For std::future and std::async
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include "stb_image.h"			// For image reading and stbi_info
 
 
-namespace fs = std::filesystem;
+namespace fs = std::filesystem;	// shorten std::filesystem to fs
+
+//================= [Variables] =================
+
+
+//System
+
+sf::Clock DClock;
+sf::Vector2u ScreenSize;
+sf::Vector2<int> MaxImgSupport = {15000, 15000};
+
 
 fs::path imagesFolder;
 sf::Vector2<int> canvace;
-sf::Vector2u ScreenSize;
 //std::vector<sf::Texture> texture;
+sf::Image image;
 sf::Texture texture;
-sf::Sprite image(texture);
+sf::RectangleShape LoadingCube{ sf::Vector2f(25.0f, 100.0f)};
+sf::Sprite sprite(texture);
 
-bool isPathsReady = false;
+std::atomic<bool> isPathsReady = false;
 std::vector<fs::path> paths;
 
 size_t index;
 
-sf::Font font("font.otf");
+sf::Font font;
 sf::Text imageCount(font, "Copy path and open this window then press 'Enter'...", 35);
-sf::Text imageRes(font, "", 25);
-
-sf::Font ArFont("Marhey-VariableFont_wght.ttf");
-sf::Text ArText(ArFont, "", 35);
+sf::Text imageRes(font, "No sprite loaded", 25);
 
 
+std::atomic isFinished = true;
+
+// Threads
+
+std::future<void> loadingPath;
+
+enum class ProgramState {
+	ReP,		// 	ReadingPath
+	Se,			// 	SettingImage
+	NP,			//	No path
+	NI,			//	No Image
+
+	Re			// 	Ready
+};
+
+ProgramState state = ProgramState::NP;
+
+//================= [Other work] =================
+
+
+//================= [Templates] =================
+
+// Consol output
 
 template<typename T>
 sf::Vector2<T> ScreenSizeNor(float x = 0.0f, float y = 0.0f) {
@@ -78,42 +109,77 @@ sf::Vector2<T> ScreenSizeNor(float x = 0.0f, float y = 0.0f) {
 	return sf::Vector2<T>({ newVX, newVY });
 }
 
-void settingImage(sf::Sprite& img);
+void Print(const std::string& text) {
+	
+}
+
+template <typename T, typename... Args>
+void Print(const std::string& function_name, T first, Args... rest) {
+	std::cout << function_name << " : " << first;
+	Print(function_name, rest...);
+}
+
+// File writing
+
+template <typename T>
+void LogToFile(T message) {
+	std::ofstream file("Log.txt", std::ios::app);
+
+	if (file) {
+		file << message << " \n===============\n";
+
+	}
+}
+
+//================= [Functions] =================
+
 
 void setPaths(std::wstring pth = L"") {
 
-
-
-	//std::cout << "Before Path is " << fs::absolute(pth).string() << "\n";
+	bool foundContent = false;
 
 	if (pth.empty()) {
-		std::cout << "To start browsing your images, please copy any folder's path and open this window and press 'Enter'\n";
+		//std::cout << "To start browsing your images, please copy any folder's path and open this window and press 'Enter'\n";
+		Print("Getting path", "To start browsing your images, please copy any folder's path and open this window and press 'Enter'\n");
+		state = ProgramState::NP;
 		return;
 	}
 
-	
+	state = ProgramState::ReP;
 	
 	paths.clear();
 
-	imageCount.setString("Loading...");
+	
 
 	index = 0;
 
 	try {
+		isPathsReady = false;
 		for (const auto& path : fs::directory_iterator(fs::path(pth))) {
 			auto Rpath = fs::path(path);
 			std::string ext = Rpath.filename().extension().string();
 			if (ext == ".png" || ext == ".jpg" || ext == ".jpeg") {
-				std::cout << Rpath.filename().string() << ", Loaded!\n";
+				//std::cout << Rpath.filename().string() << ", Loaded!\n"; // Looking at what we are storing.
+				//std::cout << Rpath.filename().string() << ", Loaded!\n"; // Looking at what we are storing.
+				Print("Getting path", Rpath.filename().string() + " Loaded\n");
 
 				int w;
 				int h;
 				int c;
 
 				if (stbi_info(fs::path(path).string().c_str(), &w, &h, &c)) {
-					std::cout << w << "x" << h << std::endl;
-					if (w > 10000 || h > 10000) {
-						std::cout << "\"" << fs::path(path).filename().string() << "\" Did not load because it's too large!\n";
+					//std::cout << w << "x" << h << std::endl; // Taking look at the resolution.
+					if (w > MaxImgSupport.x || h > MaxImgSupport.y) {
+
+						Print("\nGetting path", " ================\n\n");
+						Print("Getting path", fs::path(path).filename().string() + " Did not load because it's too large!\n",
+							fs::path(path).filename().string() + " Resolution is " + std::to_string(w) + "/" + std::to_string(h) + " \n",
+							"Allowed resolution is " + std::to_string(MaxImgSupport.x) + "/" + std::to_string(MaxImgSupport.y));
+						Print("\nGetting path", " ================\n\n");
+
+						//std::cout << "\n\"" << fs::path(path).filename().string() << "\" Did not load because it's too large!\n";
+						//std::cout << fs::path(path).filename().string() << " Resolution is " << w << 'x' << h << std::endl;
+						//std::cout << "Allowed resolution is 10000x10000\n\n";
 						continue;
 					}
 				}
@@ -124,57 +190,78 @@ void setPaths(std::wstring pth = L"") {
 
 	}
 	catch (...) {
-		std::cout << "No actual path detected!\n";
+		//std::cout << "No actual path detected!\n";
+		Print("Getting path", "No actual path detected!\n");
+		isPathsReady = false;
+		state = ProgramState::NP;
+
+		imageCount.setString("No path detected!");
 		return;
 	}
+
+	if (paths.empty()) {
+		//std::cout << "No images found in '" << fs::absolute(fs::path(pth)) << "'\n";
+		Print("Getting path", "No images found in '" + fs::absolute(fs::path(pth)).string() + "'\n");
+		isPathsReady = false;
+		state = ProgramState::NI;
+
+		imageCount.setString("No images found!");
+		return;
+	}
+
 	isPathsReady = true;
-	std::cout << "Path is " << fs::absolute(pth).string() << "\n";
 
+	state = ProgramState::Re;
 
+	//std::cout << "Path is " << fs::absolute(pth).string() << "\n";
+	
 
-	settingImage(image);
-
+	//std::cout << "Reading path is finished" << "\n";
+	Print("Getting path", "Reading path is finished\n");
 }
 
 
 
-void loadImage(size_t i, sf::Texture& txt) {
+void loadImage(size_t i) {
 	if (paths.empty()) {
-		throw "The 'images' directory is empty!\n";
+		throw "Load Image: The 'images' directory is empty!\n";
 		return;
 	}
 
+	int w, h, c = 0;
+
 	
 
-	int w;
-	int h;
-	int c;
-
 	if (stbi_info(paths.at(i).string().c_str(), &w, &h, &c)) {
-		if (w > 10000 || h > 10000) {
-			throw "The image faild to load!. Larger than 10000x10000!\n";
+		if (w > MaxImgSupport.x || h > MaxImgSupport.y) {
+			throw "Load Image: The sprite faild to load!. Larger than " + std::to_string(MaxImgSupport.x) + "/" + std::to_string(MaxImgSupport.y);
 			return;
 		}
 	}
 
-	imageRes.setString(std::to_string(w) + "x" + std::to_string(h));
+	sf::String sfString(std::to_string(w) + "x" + std::to_string(h));
+	imageRes.setString(sfString);
+
+
+	//sf::String sfString(std::to_string(152) + "x" + std::to_string(435));
+	
+	//imageRes.setString(std::to_string(w) + "x" + std::to_string(h));
+	
 	imageRes.setOrigin({ imageRes.getLocalBounds().size.x, imageRes.getLocalBounds().size.y});
 	imageRes.setPosition(ScreenSizeNor<float>(0.97f, 0.98f));
-	std::cout << imageRes.getLocalBounds().size.x << std::endl;
-	std::cout << imageRes.getLocalBounds().size.y << std::endl;
 
-	std::cout << "Loading " << paths.at(i) << "\n";
+	std::cout << "Load Image: Loading " << paths.at(i) << "\n";
 
 	auto ext = paths.at(i).filename().extension();
 
 	if (ext == ".png" || ext == ".jpg" || ext == ".jpeg") {
-		if (txt.loadFromFile(paths.at(i))) {
+		if (image.loadFromFile(paths.at(i))) {
 
 
 
 			return;
 		}
-		throw "No image detected at index " + std::to_string(i) + "!\n";
+		throw "No sprite detected at index " + std::to_string(i) + "!\n";
 		return;
 	}
 	else {
@@ -182,84 +269,77 @@ void loadImage(size_t i, sf::Texture& txt) {
 		return;
 	}
 
-
-
-
-
-
 	return;
 
 }
 
-void settingImage(sf::Sprite& img) {
+void resetImage() {
+
+	texture = sf::Texture();
+	sprite.setTexture(texture);
+
+}
+
+void settingImage(sf::Sprite& spr) {
+
+	state = ProgramState::Se;
+
+	isFinished = false;
+
+	imageCount.setString("Loading next sprite");
 
 	try {
 
-		loadImage(index, texture);
+		imageCount.setString("Loading sprite");
 
+		loadImage(index);
+
+		if (!texture.loadFromImage(image)) {
+			return;
+			throw "Cannot load from image!\n";
+		}
 
 		texture.setSmooth(true);
 
 		
+		
+		imageCount.setString("Setting the sprite");
 
-		img.setTexture(texture, true);
+		spr.setTexture(texture, true);
 
-		img.setPosition(ScreenSizeNor<float>(0.5f, 0.5f));
-		img.setOrigin({ img.getLocalBounds().size.x / 2, img.getLocalBounds().size.y / 2 });
+		spr.setPosition(ScreenSizeNor<float>(0.5f, 0.5f));
+		spr.setOrigin({ spr.getLocalBounds().size.x / 2, spr.getLocalBounds().size.y / 2 });
+
 
 
 		sf::Vector2f newSize;
 
-		newSize.x = static_cast<float>(ScreenSize.x - 50) / static_cast<float>(img.getTexture().getSize().x);
-		newSize.y = static_cast<float>(ScreenSize.y - 50) / static_cast<float>(img.getTexture().getSize().y);
+		newSize.x = static_cast<float>(ScreenSize.x - 50) / static_cast<float>(spr.getTexture().getSize().x);
+		newSize.y = static_cast<float>(ScreenSize.y - 50) / static_cast<float>(spr.getTexture().getSize().y);
 
 		float scale = std::min(newSize.x, newSize.y);
 
 		//std::cout << scale << std::endl;
 
-		img.setScale({ scale, scale });
-
-		imageCount.setString(std::to_string(index + 1) + "/" + std::to_string(paths.size()));
-
-
+		spr.setScale({ scale, scale });
 
 	}
 	catch (const char* e) {
 		std::cout << e;
-
+		imageCount.setString("No images found!");
+		imageCount.setFillColor(sf::Color::Green);
+		isFinished = true;
+		state = ProgramState::NI;
+		return;
 	}
 
 
+	state = ProgramState::Re;
+	isFinished = true;
+	imageCount.setString(std::to_string(index + 1) + "/" + std::to_string(paths.size()));
+
 }
 
-//bool loadImages() {
-
-	//if (!fs::is_empty(imagesFolder)) {
-	//	for (const auto& file : std::filesystem::directory_iterator(std::filesystem::path("images"))) {
-	//		auto ext = std::filesystem::path(file).filename().extension();
-	//		if (ext == ".jpg" || ext == ".png") {
-	//			//std::cout << "The file " << file << " is image!\n";
-	//			std::cout << "The image is loaded!\n";
-	//			texture.push_back(sf::Texture(file));
-
-	//		}
-	//		else {
-	//			std::cout << "The file " << file << " is...\n";
-	//			std::cout << ext << " is Unknown\n";
-	//		}
-	//	}
-
-	//}
-	//else {
-	//	std::cout << "No images to show!\nPut some images into 'images' folder\n";
-	//	return false;
-	//}
-	//std::cout << texture.size() << " Images loaded!\n";
-
-
-
-//	return true;
-//}
 
 
 
@@ -271,7 +351,7 @@ int main() {
 
 	ScreenSize = { 1080, 720 };
 
-	sf::RenderWindow window(sf::VideoMode(ScreenSize), "Image viewer");
+	sf::RenderWindow window(sf::VideoMode(ScreenSize), "Image viewer beta 0.0.1");
 
 	imagesFolder = fs::path("images");
 	
@@ -285,20 +365,13 @@ int main() {
 	imageRes.setOrigin({ imageRes.getLocalBounds().size.x * 2, imageRes.getLocalBounds().size.y * 2});
 	imageRes.setPosition(ScreenSizeNor<float>(1.0f, 1.0f));
 	
-
+	LoadingCube.setOrigin({ LoadingCube.getLocalBounds().size.x / 2, LoadingCube.getLocalBounds().size.y / 2 });
+	LoadingCube.setPosition(ScreenSizeNor<float>(0.5f, 0.5f));
+	
+	
 	setPaths();
 
-	
 
-	//if (paths.empty()) {
-	//	std::cout << "The 'images' directory is empty!\n";
-	//	//return -1;
-	//}
-
-	//auto loadImgsT = nullptr;
-	
-
-	// Code
 
 	index = 0;
 
@@ -308,40 +381,57 @@ int main() {
 
 	imageCount.setPosition({ 0.0f, 0.0f });
 
-	sf::Text txt(ArFont);
+	for (auto file : fs::directory_iterator(fs::current_path())) {
+		if (fs::path(file).extension() == ".otf" || fs::path(file).extension() == ".ttf") {
+			//LogToFile(fs::path(file).filename().string() + " Found font.");
+			
+			Print("Font", fs::path(file).filename().string() + " is found\n");
+			if (font.openFromFile(fs::path(file).filename())) {
+				Print("Font", "Assigning " + fs::path(file).filename().string() + ".\n");
+				break;
+			}
+			else {
+				LogToFile("Error loading font!");
+				return -1;
+			}
 
-	txt.setString("TEXT");
+		}
+		else {
+			//Print("Font", fs::path(file).filename().string() + '\n');
+			continue;
+		}
+			
+		
+		LogToFile("No font was found!\n Supported fonts are otf or ttf English!");
+		Print("Font", "Plasee check Log.txt for errors!\n");
+		std::cin.get();
+		return -1;
+			
+	}
 
-	txt.setPosition(ScreenSizeNor<float>(0.0f, 0.5f));
+
+	imageRes.setFont(font);
+	imageCount.setFont(font);
+
+	imageRes.setOrigin({ imageRes.getLocalBounds().size.x, imageRes.getLocalBounds().size.y });
+	imageRes.setPosition(ScreenSizeNor<float>(0.97f, 0.98f));
 
 	sf::RectangleShape textBG({35 * 2, 35});
-
-	//textBG.setFillColor(sf::Color(0, 0, 0, 125));
-	
-
-
-
-	
-
-	//if (!texture.loadFromFile("تنزيل.png")) {
-	//	std::cout << "No images are located!\n";
-	//	return -1;
-	//}
-
-
-
-	ArText.setPosition(ScreenSizeNor<float>(0.0f, 0.5f));
 	
 
 	bool imagesLoaded = false;
 
 	while (window.isOpen()) {
 
-		//if (!imagesLoaded && loadImgsT.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-		//	imagesLoaded = true;
-		//	image.setTexture(texture.at(0), true);
-		//	imageCount.setString(std::to_string(index + 1) + "/" + std::to_string(texture.size()));
-		//}
+		if (loadingPath.valid()) {
+			if (loadingPath.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+				loadingPath.get();
+				if(isPathsReady)
+					settingImage(sprite);
+			}
+		}
+				
+
 
 		
 
@@ -353,49 +443,49 @@ int main() {
 			}
 
 			if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
-
+				if (state == ProgramState::ReP || state == ProgramState::Se) continue;
 				
-				if (key->scancode == sf::Keyboard::Scan::Right) {
-					if (!isPathsReady)
-						break;
-					if (index < paths.size() - 1) {
-						index++;
-					}
-					else {
-						index = 0;
-					}
-					//std::cout << "Image index " << index << std::endl;
-					settingImage(image);
-				}
-				if (key->scancode == sf::Keyboard::Scan::Left) {
-					if (!isPathsReady)
-						break;
-					if (index > 0) {
-						index--;
-					}
-					else {
-						index = paths.size() - 1;
-					}
-					//std::cout << "Image index " << index << std::endl;
-					settingImage(image);
-				}
-				if (key->scancode == sf::Keyboard::Scan::Up) {
-					if (!isPathsReady)
-						break;
+				else if (state == ProgramState::Re) {
 
-					int oldIndex = index;
-					while (index == oldIndex) {
-						index = rand() % paths.size();
+					if (key->scancode == sf::Keyboard::Scan::Right) {
+						if (!isPathsReady)
+							break;
+						if (index < paths.size() - 1) {
+							index++;
+						}
+						else {
+							index = 0;
+						}
+						settingImage(sprite);
+					}
+					if (key->scancode == sf::Keyboard::Scan::Left) {
+						if (!isPathsReady)
+							break;
+						if (index > 0) {
+							index--;
+						}
+						else {
+							index = paths.size() - 1;
+						}
+						settingImage(sprite);
+					}
+					if (key->scancode == sf::Keyboard::Scan::Up) {
+						if (!isPathsReady)
+							break;
+
+						int oldIndex = index;
+						while (index == oldIndex) {
+							index = rand() % paths.size();
+						}
+						//std::cout << "Image index " << index << std::endl;
+						settingImage(sprite);
 					}
 
-					//std::cout << "Image index " << index << std::endl;
-					settingImage(image);
-				}
+					if (key->scancode == sf::Keyboard::Scan::Delete) {
+						resetImage();
+					}
 				
-
-				/*auto loadImgsT = std::async(std::launch::async, loadImage);*/
-
-
+				}
 
 				if (key->scancode == sf::Keyboard::Scan::Enter) {
 					sf::String cb = sf::Clipboard::getString(); 
@@ -409,50 +499,75 @@ int main() {
 					word.erase(std::remove(word.begin(), word.end(), '"'), word.end());
 
 					
-					std::wcout << word << std::endl;
+					//std::wcout << word << std::endl;
 
 					//std::string word = cb.toUtf8();
 					//txt.setString(sf::String::fromUtf8(cb.begin(), cb.end()));
 					//txt.setString(word);
-					
+					if (cb.isEmpty()) {
+						Print("Clipboard", "Can't paste that here!\n");
+						continue;
+					}
 
 					try {
-						setPaths(word);
+						imageCount.setString("Reading the path");
+						//setPaths(word);
+						state = ProgramState::ReP;
+						loadingPath = std::async(std::launch::async, setPaths, word);
+					}
+					catch (const sf::Exception& e) {
+						std::cout << "Clickboard error : " << e.what();
 					}
 					catch(const char* e){
 						std::cout << e;
 					}
 
 				}
+				
+
+
+				
+
 			}
 
 			if (const auto& mm = event->getIf<sf::Event::MouseMoved>()) {
-				//txt.setPosition(static_cast<sf::Vector2f>(mm->position));
-				//imageCount.setPosition(static_cast<sf::Vector2f>(mm->position));
 			}
 
 		}
 
 		//if (!imagesLoaded && loadImgsT.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
 		//	imagesLoaded = true;
-		//	image.setTexture(texture, true);
+		//	sprite.setTexture(texture, true);
 		//	imageCount.setString(std::to_string(index + 1) + "/" + std::to_string(paths.size()));
 		//}
 		
+		
+		float delta = DClock.restart().asSeconds();
 
 		window.clear(sf::Color::Black);
 
-
-		//if (imagesLoaded) {
-		//	window.draw(image);
-
-		//}
+		switch (state)
+		{
+		case ProgramState::Re:
+			window.draw(sprite);
+			break;
+		case ProgramState::ReP:
+		case ProgramState::Se:
+			LoadingCube.rotate(sf::Angle(sf::radians(8.0f)) * delta);
+			window.draw(LoadingCube);
 			
-		window.draw(image);
+			break;
+		default:
+			break;
+		}
+
+
+			
+		//window.draw(sprite);
+
 		window.draw(imageRes);
 		window.draw(imageCount);
 		
-		window.draw(txt);
 
 
 		
@@ -462,7 +577,7 @@ int main() {
 	}
 
 
-
+	std::cin.get();
 
 
 	return 0;
