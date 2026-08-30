@@ -2,7 +2,7 @@
 
 ## Introducing
 
-This simple image viewer can easily show you images using an address of a folder contain pictures with extension (.png, .jpeg, .jpg).
+This simple image viewer can easily show you images using the path of a folder contain pictures with extension (.png, .jpeg, .jpg).
 
 This application is a learning project, it contain nothing new to the table, just me creating software with SFML library.
 
@@ -20,7 +20,9 @@ With left/right arrows to go left and right, up arrow give you random image.
 
 ## Compile the code
 
-This application has been compiled with Visual studio 2022
+This application has been compiled with Visual studio 2022, it's easy to compiler it with gcc and clang, no additional big library is used.
+
+The project uses C++17.
 
 ### Libraries
 
