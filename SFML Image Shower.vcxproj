@@ -135,13 +135,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\floatingWindow.cpp" />
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\floatingWindow.h" />
+    <ClInclude Include="src\global.h" />
     <ClInclude Include="src\stb_image.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <Font Include="font.otf" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

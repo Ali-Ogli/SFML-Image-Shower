@@ -1,0 +1,239 @@
+#pragma once
+
+#include "global.h"
+
+typedef unsigned char       BYTE;
+
+struct Window {
+	sf::RenderWindow win;
+	sf::Sprite sprite;
+	sf::Texture texture;
+
+	sf::Vector2u windowSize;
+
+	sf::RectangleShape draggingPlace;
+	sf::RectangleShape WinResizePlace;
+
+	Window() = delete;
+
+	Window(sf::Vector2u winSize, fs::path pth): texture(), sprite(texture), windowSize(winSize) {
+		win.create(sf::VideoMode(windowSize), "", sf::Style::None, sf::State::Windowed);
+
+		initSpr(pth);
+
+		draggingPlace.setSize({ 35.0f, 35.0f });
+
+		draggingPlace.setFillColor(sf::Color(255, 255, 255, 0));
+
+		draggingPlace.setOrigin(sf::Vector2f(draggingPlace.getLocalBounds().size.x, 0.0f));
+
+		draggingPlace.setPosition(WindowSizeNor<float>(windowSize, 1.0f, 0.0f));
+
+
+
+		WinResizePlace.setSize(draggingPlace.getSize());
+
+		WinResizePlace.setFillColor(sf::Color(255, 255, 255, 0));
+
+		WinResizePlace.setOrigin(sf::Vector2f(WinResizePlace.getLocalBounds().size.x, WinResizePlace.getLocalBounds().size.y));
+
+		WinResizePlace.setPosition(WindowSizeNor<float>(windowSize, 1.0f, 1.0f));
+
+	}
+
+
+	~Window() {
+		Print("Single window", "Window is closed!");
+		win.close();
+	}
+
+	//===Sprite/Texture methods===
+
+	void initSpr(fs::path path) {
+
+		Print("Single window", "Init Sprite");
+
+		if (!texture.loadFromFile(path)) {
+			Print("Single window", "Texture couldn't load!");
+			return;
+		}
+
+		Print("Single window", path);
+
+		
+
+		sprite.setTexture(texture, true);
+
+		sf::Vector2f newSize;
+
+		newSize.x = static_cast<float>(windowSize.x) / static_cast<float>(sprite.getTexture().getSize().x);
+		newSize.y = static_cast<float>(windowSize.y) / static_cast<float>(sprite.getTexture().getSize().y);
+
+		float scale = std::min(newSize.x, newSize.y);
+
+		sprite.setScale({ scale, scale });
+
+		sprite.setOrigin({ sprite.getLocalBounds().size.x / 2, sprite.getLocalBounds().size.y / 2 });
+		sprite.setPosition(WindowSizeNor<float>(windowSize, 0.5f, 0.5f));
+
+		Print("Single window", "X " + std::to_string(sprite.getTexture().getSize().x) + " Y " + std::to_string(sprite.getTexture().getSize().y));
+	}
+
+	void resizeSpr() {
+		sf::Vector2f newSize;
+
+		newSize.x = static_cast<float>(windowSize.x) / static_cast<float>(sprite.getTexture().getSize().x);
+		newSize.y = static_cast<float>(windowSize.y) / static_cast<float>(sprite.getTexture().getSize().y);
+
+		float scale = std::min(newSize.x, newSize.y);
+
+		sprite.setScale({ scale, scale });
+
+		sprite.setPosition(sf::Vector2f(windowSize.x / 2, windowSize.y / 2));
+	}
+
+	//===Window methods===
+
+	//void eventHandler() {
+
+	//	while (const std::optional event = win.pollEvent()) {
+
+	//		if (const auto* KP = event->getIf<sf::Event::KeyPressed>()) {
+	//			if (KP->scancode == sf::Keyboard::Scan::Escape) {
+	//				~Window();
+	//			}
+	//		}
+
+	//	}
+
+	//}
+
+	void resizeWindow(sf::Vector2u NewSize) {
+		sf::View view(sf::FloatRect({ 0.0f, 0.0f }, sf::Vector2f(NewSize)));
+		win.setView(view);
+
+		windowSize = NewSize;
+
+		draggingPlace.setOrigin(sf::Vector2f(draggingPlace.getLocalBounds().size.x, 0.0f));
+
+		draggingPlace.setPosition(WindowSizeNor<float>(windowSize, 1.0f, 0.0f));
+
+
+		WinResizePlace.setOrigin(sf::Vector2f(WinResizePlace.getLocalBounds().size.x, WinResizePlace.getLocalBounds().size.y));
+
+		WinResizePlace.setPosition(WindowSizeNor<float>(windowSize, 1.0f, 1.0f));
+
+	}
+
+	void draw() {
+		if (win.isOpen()) {
+			//Print("Single window", "Is drawing");
+			win.clear(sf::Color::Black);
+
+			win.draw(sprite);
+			win.draw(draggingPlace);
+			win.draw(WinResizePlace);
+
+			win.display();
+		}
+	}
+
+
+
+	// Getters
+
+	sf::Vector2u& getWinSize() {
+		return windowSize;
+	}
+
+	sf::RectangleShape& getDraggPlace() {
+		return draggingPlace;
+	}
+
+	sf::RectangleShape& getWinRePlace() {
+		return WinResizePlace;
+	}
+
+	sf::Texture& getTexture() {
+		return texture;
+	}
+
+	sf::Sprite& getSprite() {
+		return sprite;
+	}
+
+	sf::RenderWindow& getWindow() {
+		return win;
+	}
+
+};
+
+
+
+class FloatingWindows {
+	//std::vector<std::unique_ptr<sf::RenderWindow>> windows;
+	//std::vector<std::unique_ptr<sf::Sprite>> sprites;
+	//std::vector<std::unique_ptr<sf::Texture>> textures;
+
+	//sf::RectangleShape draggingPlace;
+	//sf::RectangleShape WinResizePlace;
+
+	std::vector<std::unique_ptr<Window>> windows;
+
+
+	sf::Vector2u windowSize;
+	sf::Vector2u newSize;
+	sf::Vector2i offset;
+	sf::Vector2f sprOffset;
+	sf::Vector2i currMouPos;
+
+	enum class MOUSESTATE {
+		WiD,	// Window Dragging
+		WiRe,	// Window Resizing
+		ImD,	// Image Dragging
+		ImR,	// Image Rotating
+		ImRe,	// Image Resizing
+
+		Non		// None. No user input.
+	};
+
+	MOUSESTATE MouseState;
+
+
+
+	bool isMouseInWindow;
+	bool AlwaysOnTop;
+public:
+	FloatingWindows();
+
+	// init new Floating window
+
+	void init();
+
+	// init winows
+
+	void initWindow();
+
+	void closeWindow(int id);
+
+	void closeAllWindows();
+
+	// init graphics
+
+	void initSprite();
+
+	// Draw
+
+	void draw();
+
+	void setWindowZIndex();
+
+	void setWindowTransp(int id, BYTE transparencyValue);
+
+	void eventHandler();
+
+	//================= [End of Events] =================
+//============================================================================
+
+
+};
