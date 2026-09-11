@@ -50,6 +50,8 @@ Left-ctrl + mouse wheel to scale the floating window vertically.
 
 'space' in specific window to make the floating window transparent. "NOTE: This feature is not fully supported. Use at your own risk"
 
+To close specific window, just click on it and click 'esc' to close it.
+
 ## Compile the code
 
 This application has been compiled with Visual studio 2022, it's easy to compiler it with gcc and clang, no additional big library is used.
