@@ -60,7 +60,7 @@ The project uses C++17.
 
 This code need 
 
-- SFML library by Laurent Gomila
+- SFML 3.0.2v library by Laurent Gomila
 - stb_image.h by Sean Barrett
 - Portable File Dialogs by Sam Hocevar
 - TGUI by Texus Bruno Van de Velde
