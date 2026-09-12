@@ -1,4 +1,4 @@
-# SFML Image Shower
+# SFML Image floating windows.
 
 ## Introducing
 
